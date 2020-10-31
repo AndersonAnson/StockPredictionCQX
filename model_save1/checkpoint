@@ -1,0 +1,2 @@
+model_checkpoint_path: "D:/pythonProject/lstm-rnn-stock-predict/lstm_rnn_yahoo_predict/model_save1/modle.ckpt"
+all_model_checkpoint_paths: "D:/pythonProject/lstm-rnn-stock-predict/lstm_rnn_yahoo_predict/model_save1/modle.ckpt"

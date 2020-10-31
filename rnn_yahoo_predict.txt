@@ -1,0 +1,138 @@
+#����lstm-rnn���Ż���Ʊ�۸�Ԥ��
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+#��ȡ�Ż���Ʊ�ӿ�
+from pandas_datareader import data as pdr
+import datetime
+import fix_yahoo_finance as yf
+#����matplotlib��ͼ�ķ���
+plt.rcParams['font.sans-serif'] = ['SimHei']  #��ʾ����
+plt.rcParams['axes.unicode_minus']=False #����������ʾ�����еĸ���
+def get_data(name):
+    try:
+        yf.pdr_override()
+    #��ȡ����babʵʱ��Ʊ����
+        finance = pdr.get_data_yahoo(name,start = datetime.datetime(2014,11,11),end = datetime.datetime(2018,8,24))  
+        data = np.array(finance['Close']) #��ȡ���̼۵�����
+        data = data[::1] #��ȡ���е���������
+        print('��Ʊ���ݻ�ȡ��ɣ���')
+        return data
+    except Exception:
+        print('��Ʊ���ݻ�ȡʧ�ܣ���')
+data = get_data('BABA')
+#������ͼչʾ���������
+#fig =plt.figure()
+#fig.add_subplot(1,2,1)
+#plt.plot(data)
+#plt.show()
+normalize_data=(data-np.mean(data))/np.std(data)  #�����ݽ��б�׼��
+normalize_data=normalize_data[:,np.newaxis]       #�������ݵ�ά�ȣ�ʹ����ά����ͬ
+
+#���������������������������������������γ�ѵ����������������������������������������������
+#����rnn����ĳ���
+time_step=20     #ʱ�䲽 
+rnn_unit=10       # hidden layer units
+batch_size=60     # ÿһ��ѵ�����ٸ�����
+input_size=1      # �������ά��
+output_size=1     # �������ά��
+lr=0.0006         # ѧϰ��
+train_x,train_y=[],[]   #ѵ����
+for i in range(len(normalize_data)-time_step-1):
+    x=normalize_data[i:i+time_step]
+    y=normalize_data[i+1:i+time_step+1]
+    train_x.append(x.tolist())
+    train_y.append(y.tolist()) 
+
+#���������������������������������������������������������������������������������������������
+
+X=tf.placeholder(tf.float32, [None,time_step,input_size])    #ÿ�������������tensor
+Y=tf.placeholder(tf.float32, [None,time_step,output_size])   # ÿ����tensor��Ӧ�ı�ǩ
+#����㡢������Ȩ�غ�ƫ��
+weights={
+         'in':tf.Variable(tf.random_normal([input_size,rnn_unit])),
+         'out':tf.Variable(tf.random_normal([rnn_unit,1]))
+         }
+biases={
+        'in':tf.Variable(tf.constant(0.1,shape=[rnn_unit,])),
+        'out':tf.Variable(tf.constant(0.1,shape=[1,]))
+        }
+
+#������������������������������������������lstm���硪����������������������������������������
+def lstm(batch):      #��������������������Ŀ
+    w_in=weights['in']
+    b_in=biases['in']
+    input=tf.reshape(X,[-1,input_size])  #��Ҫ��tensorתΪ2ά���м��㣬�����Ľ����Ϊ ���ز������
+    input_rnn=tf.matmul(input,w_in)+b_in
+    input_rnn=tf.reshape(input_rnn,[-1,time_step,rnn_unit])   #��tensorתΪ3ά����Ϊ lstm cell������
+    cell=tf.nn.rnn_cell.BasicLSTMCell(rnn_unit)
+    init_state=cell.zero_state(batch,dtype=tf.float32)
+    output_rnn,final_states=tf.nn.dynamic_rnn(cell, input_rnn,initial_state=init_state, dtype=tf.float32)
+    output=tf.reshape(output_rnn,[-1,rnn_unit])  #��Ϊ����������
+    w_out=weights['out']
+    b_out=biases['out']
+    pred=tf.matmul(output,w_out)+b_out
+    return pred,final_states
+
+#����������������������������������������ģ�ͽ���ѵ��������������������������������������������
+def train_lstm():
+    global batch_size
+    with tf.variable_scope("sec_lstm"):
+        pred,_=lstm(batch_size)
+    #������ʧ����
+    loss=tf.reduce_mean(tf.square(tf.reshape(pred,[-1])-tf.reshape(Y, [-1])))
+    train_op=tf.train.AdamOptimizer(lr).minimize(loss)
+    saver=tf.train.Saver(tf.global_variables())
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        
+        for i in range(50): #We can increase the number of iterations to gain better result.
+            step=0
+            start=0
+            end=start+batch_size
+            while(end<len(train_x)):
+                _,loss_=sess.run([train_op,loss],feed_dict={X:train_x[start:end],Y:train_y[start:end]})
+                start+=batch_size
+                end=start+batch_size
+                #ÿѵ��10�α���һ�β���
+                if step%10==0:
+                    print("Number of iterations:",i," loss:",loss_) #���ѵ�������������ʧֵ
+                    print("model_save",saver.save(sess,'C:/Users/lidongming1/Desktop/tensorflow_demo/tensorflow_rnn/model_save1/modle.ckpt')) #�ڶ��������Ǳ���ĵ�ַ�������޸�Ϊ�Լ����صı����ַ
+                    #I run the code in windows 10,so use  'model_save1\\modle.ckpt'
+                    #if you run it in Linux,please use  'model_save1/modle.ckpt'
+                step+=1
+        print("The train has finished")
+train_lstm() #��ģ�ͽ���ѵ��
+
+#��������������������������������������Ԥ��ģ�͡�����������������������������������������
+def prediction():
+    with tf.variable_scope("sec_lstm",reuse=True):
+        pred,_=lstm(1)    #Ԥ��ʱֻ����[1,time_step,input_size]�Ĳ�������
+    saver=tf.train.Saver(tf.global_variables())
+    with tf.Session() as sess:
+        #�����ָ�
+        saver.restore(sess, 'C:/Users/lidongming1/Desktop/tensorflow_demo/tensorflow_rnn/model_save1/modle.ckpt') #�ڶ��������Ǳ���ĵ�ַ�������޸�Ϊ�Լ����صı����ַ
+        #I run the code in windows 10,so use  'model_save1\\modle.ckpt'
+        #if you run it in Linux,please use  'model_save1/modle.ckpt'
+        
+        #ȡѵ�������һ��Ϊ����������shape = [1,time_step,input_size]
+        prev_seq=train_x[-1]
+        predict=[]
+        #�õ�֮���100��Ԥ����
+        for i in range(100):
+            next_seq=sess.run(pred,feed_dict={X:[prev_seq]})
+            predict.append(next_seq[-1])
+            #ÿ�εõ����һ��ʱ�䲽��Ԥ��������֮ǰ�����ݼ���һ���γ��µĲ�������
+            prev_seq=np.vstack((prev_seq[1:],next_seq[-1]))
+        #������ͼչʾ���
+        plt.figure(figsize = (8,8)) #ͼ���СΪ8*8Ӣ��
+        plt.title('��Ʊ����Ԥ��ͼ')
+        plt.plot(list(range(len(normalize_data))), normalize_data, color='b',label = 'raw data') #����ԭ����Ʊ�ļ۸����ƣ�����ɫ���߱�ʾ
+        plt.plot(list(range(len(normalize_data), len(normalize_data) + len(predict))), predict, color='r',label = 'predict trend') #Ԥ��δ���ļ۸������ú�ɫ��ʾ
+        plt.legend(loc = 'best')
+        plt.xticks([])#ȥ��X��̶�
+        plt.yticks([])
+        plt.show()
+        
+prediction() 
