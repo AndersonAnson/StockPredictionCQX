@@ -20,15 +20,14 @@ from matplotlib.font_manager import FontProperties
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # 显示中文
 plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示坐标中的负号
 ts.set_token('f4a0ccdba6f17c530e449cc71af7ae681a857113e1cefd20b632f26a')
-tickerString = '600519.SH'
-
+tickerString = '300541.SZ'
 
 def get_home_data(num):
     try:
         # data = ts.get_hist_data(num,start = start,end = end)
         # 获取A股
         pro = ts.pro_api()
-        data = pro.daily(ts_code=num)
+        data = pro.daily(ts_code=num,start_date='20191104', end_date='20201104')
         # data = ts.get_hist_data(num)
         data = pd.DataFrame(data)
         data = np.array(data['close'])
@@ -38,22 +37,20 @@ def get_home_data(num):
     except Exception:
         print(num + '股票获取失败！')
 
-
 data = get_home_data(tickerString)
 
 
 def get_national_data(name):
     try:
         yf.pdr_override()
-        # 获取阿里bab实时股票数据
-        finance = pdr.get_data_yahoo(name, start=datetime.datetime(2017, 1, 5), end=datetime.datetime(2020, 10, 31))
+        # 获取实时股票数据
+        finance = pdr.get_data_yahoo(name, start=datetime.datetime(2020, 1, 5), end=datetime.datetime(2020, 11, 4))
         data = np.array(finance['Close'])  # 获取收盘价的数据
         data = data[::1]  # 获取这列的所有数据
         print('股票数据获取完成！！')
         return data
     except Exception:
         print('股票数据获取失败！！')
-
 
 # data = get_national_data('AAPL')
 # 以折线图展示导入的数据
@@ -63,6 +60,7 @@ def get_national_data(name):
 # plt.show()
 normalize_data = (data - np.mean(data)) / np.std(data)  # 对数据进行标准化 （数据 - 均值）/（方差）
 normalize_data = normalize_data[:, np.newaxis]  # 增加数据的维度，使数据维度相同
+# 这样改变维度的作用往往是将一维的数据转变成一个矩阵，与代码后面的权重矩阵进行相乘， 否则单单的数据是不能呢这样相乘的哦。
 
 # ———————————————————形成训练集—————————————————————
 # 设置rnn网络的常量
@@ -83,7 +81,6 @@ for i in range(len(normalize_data) - time_step - 1):
 # print(train_y)
 
 # ———————————————————定义神经网络变量—————————————————————
-
 X = tf.placeholder(tf.float32, [None, time_step, input_size])  # 每批次输入网络的tensor
 Y = tf.placeholder(tf.float32, [None, time_step, output_size])  # 每批次tensor对应的标签
 # 输入层、输出层的权重和偏置
@@ -95,7 +92,6 @@ biases = {
     'in': tf.Variable(tf.constant(0.1, shape=[rnn_unit, ])),
     'out': tf.Variable(tf.constant(0.1, shape=[1, ]))
 }
-
 
 # ———————————————————定义lstm网络—————————————————————
 def lstm(batch):  # 参数：输入网络批次数目
@@ -112,7 +108,6 @@ def lstm(batch):  # 参数：输入网络批次数目
     b_out = biases['out']
     pred = tf.matmul(output, w_out) + b_out
     return pred, final_states
-
 
 # ———————————————————对模型进行训练—————————————————————
 def train_lstm():
@@ -137,16 +132,12 @@ def train_lstm():
                 # 每训练10次保存一次参数
                 if step % 10 == 0:
                     print("Number of iterations:", i, " loss:", loss_)  # 输出训练次数，输出损失值
-                    print("model_save", saver.save(sess,
-                                                   'D:/pythonProject/lstm-rnn-stock-predict/lstm_rnn_yahoo_predict/model_save1/modle.ckpt'))  # 第二个参数是保存的地址，可以修改为自己本地的保存地址
+                    print("model_save", saver.save(sess, './model_save1/modle.ckpt'))
+                    # 'D:/pythonProject/lstm-rnn-stock-predict/lstm_rnn_yahoo_predict/model_save1/modle.ckpt'))  # 第二个参数是保存的地址，可以修改为自己本地的保存地址
                     # I run the code in windows 10,so use  'model_save1\\modle.ckpt'
                     # if you run it in Linux,please use  'model_save1/modle.ckpt'
                 step += 1
         print("The train has finished")
-
-
-train_lstm()  # 对模型进行训练
-
 
 # ———————————————————预测模型—————————————————————
 def prediction():
@@ -155,8 +146,8 @@ def prediction():
     saver = tf.train.Saver(tf.global_variables())
     with tf.Session() as sess:
         # 参数恢复
-        saver.restore(sess,
-                      'D:/pythonProject/lstm-rnn-stock-predict/lstm_rnn_yahoo_predict/model_save1/modle.ckpt')  # 第二个参数是保存的地址，可以修改为自己本地的保存地址
+        saver.restore(sess, './model_save1/modle.ckpt')
+        # 'D:/pythonProject/lstm-rnn-stock-predict/lstm_rnn_yahoo_predict/model_save1/modle.ckpt')  # 第二个参数是保存的地址，可以修改为自己本地的保存地址
         # I run the code in windows 10,so use  'model_save1\\modle.ckpt'
         # if you run it in Linux,please use  'model_save1/modle.ckpt'
 
@@ -176,9 +167,9 @@ def prediction():
         # 设置字体
         sns.set_context(context='poster', font_scale=1)
         if tickerString == 'sh':
-            plt.title('shanghai' + '    ' + (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            plt.title('SHANGHAI' + '    ' + (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         elif tickerString == 'sz':
-            plt.title('shenzhen' + '    ' + (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+            plt.title('SHENZHEN' + '    ' + (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         else:
             plt.title(tickerString + '    ' + (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
         plt.plot(list(range(len(normalize_data))), normalize_data, color='b', label='Past')  # 这是原来股票的价格走势，用蓝色曲线表示
@@ -190,5 +181,5 @@ def prediction():
         # plt.xticks([])
         plt.show()
 
-
+train_lstm()  # 对模型进行训练
 prediction()
