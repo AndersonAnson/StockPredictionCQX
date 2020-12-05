@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 # import tensorflow as tf
+# tf.compat.v1.disable_v2_behavior()
 import tensorflow.compat.v1 as tf
-
 tf.disable_v2_behavior()
 # 获取雅虎股票接口
 from pandas_datareader import data as pdr
@@ -19,7 +19,7 @@ from matplotlib.font_manager import FontProperties
 # 配置matplotlib画图的符号
 plt.rcParams['font.sans-serif'] = ['Microsoft YaHei']  # 显示中文
 plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示坐标中的负号
-ts.set_token('f4a0ccdba6f17c530e449cc71af7ae681a857113e1cefd20b632f26a')
+ts.set_token('e1dec66c4534d0cfa9e009f8d955954f20890473807a16ce5d7c7832')
 tickerString = '300541.SZ'
 
 def get_home_data(num):
@@ -27,7 +27,7 @@ def get_home_data(num):
         # data = ts.get_hist_data(num,start = start,end = end)
         # 获取A股
         pro = ts.pro_api()
-        data = pro.daily(ts_code=num,start_date='20191104', end_date='20201104')
+        data = pro.daily(ts_code=num,start_date='20200101', end_date='20201205')
         # data = ts.get_hist_data(num)
         data = pd.DataFrame(data)
         data = np.array(data['close'])
